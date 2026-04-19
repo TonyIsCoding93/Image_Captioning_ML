@@ -1,5 +1,5 @@
 import numpy as np
-import os
+import os, re
 from tensorflow.keras.applications import VGG16
 from tensorflow.keras.applications.vgg16 import preprocess_input
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
@@ -12,7 +12,7 @@ class ImageCaptioningModel:
         self.captions_path = captions_path
         self.images_path = images_path
         self.captions = {}
-        self.images = {}
+        self.features = {}
     # function that loads our image files and captions into a dictionary
     def loadCaptions(self):
 
@@ -49,7 +49,19 @@ class ImageCaptioningModel:
             image = preprocess_input(image)
             self.features[filename] = baseModel.predict(image, verbose=0) ##verbose to cancel progress bar
 
-        np.save('features.npy', self.features)
+        np.save('features.npy', self.features) #saving our vector numbers to the disk so we dont 
+        #have to run VGG16 everytime our program runs. 
+    def preProcessCaptions(self):
+        for file, captions in self.captions.items():
+            cleaned= []
+            for caption in captions:
+                caption = caption.lower()
+                caption = re.sub("[^a-z ]", "", caption)
+                caption = caption.strip()
+                caption = "startseq " + caption + " endseq"
+                cleaned.append(caption)
+            self.captions[file] = cleaned
+            
 
 
 
@@ -60,7 +72,13 @@ class ImageCaptioningModel:
 
 model = ImageCaptioningModel("data/archive/captions.txt", "data/archive/Images/")
 model.loadCaptions()
-model.extractFeatures()
-            
+model.preProcessCaptions()  
+
+#model.extractFeatures()
+
+
+
+
+
 
 
