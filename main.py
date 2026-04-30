@@ -13,6 +13,9 @@ class ImageCaptioningModel:
         self.images_path = images_path
         self.captions = {}
         self.features = {}
+        self.word_to_index = {}
+        self.index_to_word = {}
+        self.vocab_size = 0
     # function that loads our image files and captions into a dictionary
     def loadCaptions(self):
 
@@ -61,7 +64,22 @@ class ImageCaptioningModel:
                 caption = "startseq " + caption + " endseq"
                 cleaned.append(caption)
             self.captions[file] = cleaned
-            
+
+    def buildVocabulary(self):
+        vocab = set()
+        for filename, captions in self.captions.items():
+            for caption in captions:
+                for word in caption.split():
+                    vocab.add(word)
+        for index, word in enumerate(vocab, start=1):
+            self.word_to_index[word] = index    #going into the LSTM
+            self.index_to_word[index] = word    #coming out of the LSTM
+        self.vocab_size = len(vocab) + 1
+
+    
+
+
+
 
 
 
@@ -72,12 +90,15 @@ class ImageCaptioningModel:
 
 model = ImageCaptioningModel("data/archive/captions.txt", "data/archive/Images/")
 model.loadCaptions()
-model.preProcessCaptions()  
+model.preProcessCaptions()
+model.buildVocabulary()
 
-#model.extractFeatures()
-
-
-
+print(f"Vocabulary size: {model.vocab_size}")
+print(f"Sample mappings:")
+print(f"  'dog' → {model.word_to_index.get('dog')}")
+print(f"  'startseq' → {model.word_to_index.get('startseq')}")
+print(f"  'endseq' → {model.word_to_index.get('endseq')}")
+print(f"  Index 1 → {model.index_to_word.get(1)}")
 
 
 
