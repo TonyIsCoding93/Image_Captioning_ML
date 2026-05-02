@@ -4,7 +4,61 @@ from tensorflow.keras.applications import VGG16
 from tensorflow.keras.applications.vgg16 import preprocess_input
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 
+class LSTM:
+    
 
+    def __init__(self, vocab_size, embed_size, hidden_size):
+        self.vocab_size = vocab_size
+        self.embed_size = embed_size
+        self.hidden_size = hidden_size
+
+        #forget gate
+        self.weight_forget_gate = np.random.randn(hidden_size, hidden_size + embed_size) *.01
+        self.bias_forget_gate = np.zeros((hidden_size, 1))
+        #input gate
+        self.weight_input = np.random.randn(hidden_size, hidden_size + embed_size) * .01
+        self.bias_input = np.zeros((hidden_size, 1))
+        #cell gate
+        self.weight_cell = np.random.randn(hidden_size, hidden_size + embed_size) * .01
+        self.bias_cell = np.zeros((hidden_size, 1))
+        #output gate
+        self.weight_output = np.random.randn(hidden_size, hidden_size + embed_size) * .01
+        self.bias_output = np.zeros((hidden_size, 1))
+        #embed matrix 
+        self.embedding = np.random.randn(vocab_size, embed_size) * .01
+        #output layer
+        self.weight_vocab = np.random.randn(vocab_size, hidden_size) * 0.01
+        self.bias_vocab = np.zeros((vocab_size, 1))
+    #squish each number between 0 and 1
+    def sigmoid(self, x):
+        return 1 / (1 + np.exp(-x))
+    #create probabilites of each array
+    def to_probabilities(self, x):
+        exp_x = np.exp(x-np.max(x))
+        return exp_x / exp_x.sum(axis=0)
+    
+    def forward_pass(self, x, hidden_state, cell_state):
+        #grab row from embed matrix and make it a column
+        word_embed = self.embedding[x].reshape(-1, 1)
+        #combing hidden state and word embedding into 1 long vertical vector
+        combined = np.vstack((hidden_state, word_embed))
+        #decide on what to forget from long term memory
+        forget = self.sigmoid(self.weight_forget_gate @ combined + self.bias_forget_gate)
+        #decide how much we should save into long term memory
+        input_gate = self.sigmoid(self.weight_input @ combined + self.bias_input)
+        #create new information that could be stored into long term memory
+        cell_update = np.tanh(self.weight_cell @ combined + self.bias_cell)
+        #determine what long term mem is relevent 
+        output_gate = self.sigmoid(self.weight_output @ combined + self.bias_output)
+        #erase and add 
+        cell_state = forget * cell_state + input_gate * cell_update
+        #put the cell state through tanh to get -1 to 1 output, filter exposure
+        hidden_state = output_gate * np.tanh(cell_state)
+        #prediciton, get raw scores for each word then turn them into percentages. highest prob wins!
+        output = self.weight_vocab @ hidden_state + self.bias_vocab
+        probabilities = self.to_probabilities(output)
+
+        return probabilities, hidden_state, cell_state
 
 class ImageCaptioningModel:
 
@@ -101,5 +155,18 @@ print(f"  'endseq' → {model.word_to_index.get('endseq')}")
 print(f"  Index 1 → {model.index_to_word.get(1)}")
 
 
+lstm = LSTM(vocab_size=model.vocab_size, embed_size=256, hidden_size=256)
 
+hidden_state = np.zeros((256, 1))
+cell_state = np.zeros((256, 1))
+
+word_index = model.word_to_index["startseq"]
+probs, hidden_state, cell_state = lstm.forward_pass(word_index, hidden_state, cell_state)
+
+predicted_index = np.argmax(probs)
+predicted_word = model.index_to_word.get(predicted_index, "unknown")
+print(f"Input: 'startseq'")
+print(f"Predicted next word: '{predicted_word}'")
+print(f"Probability: {probs[predicted_index][0]:.4f}")
+print(f"Output shape: {probs.shape}")
 
