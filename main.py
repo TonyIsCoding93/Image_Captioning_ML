@@ -1,15 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
 import numpy as np
 import os, re
 from tensorflow.keras.applications import VGG16
@@ -66,6 +54,8 @@ class LSTM:
         self.weight_vocab = np.random.randn(vocab_size, hidden_size) * 0.01
         self.bias_vocab = np.zeros((vocab_size, 1))
 
+        #converts our image vector into a hidden state size so we can use it as our starting memory
+        self.image_to_hidden = np.random.randn(hidden_size, 512) * 0.01
 
 
 
@@ -349,8 +339,8 @@ class ImageCaptioningModel:
                 for caption in captions:
                     words = caption.split()
 
-                    #. start with blank memory for each caption
-                    hidden = np.zeros((256, 1))
+                    #use image features as starting point for the hidden state so the lstm knows whats in the picture
+                    hidden = lstm.image_to_hidden @ imageVector
                     memory = np.zeros((256, 1))
 
 
@@ -394,8 +384,9 @@ class ImageCaptioningModel:
         #load features
         features = np.load('features.npy', allow_pickle=True).item()
         
-        #start with blank memory
-        hidden = np.zeros((256, 1)) #do
+        #use image features as starting hidden state
+        imageVector = features[filename].reshape(-1, 1)
+        hidden = self.lstm.image_to_hidden @ imageVector
         memory = np.zeros((256, 1))
 
         currentWord = "startseq"
@@ -463,10 +454,6 @@ class ImageCaptioningModel:
 
 
             #   need to split the real captions into words and get rid of our start and stop tokens
-
-
-
-
             refWords = []
             for cap in captions:
                 words = cap.split()
@@ -480,7 +467,7 @@ class ImageCaptioningModel:
             ourCaptions.append(generatedCaption.split())
         
 
-        #these weights are standard for bleu scorin
+        #these weights are standard for bleu scoring
         score1 = corpus_bleu(realCaptions, ourCaptions, weights=(1, 0, 0, 0))
         score2 = corpus_bleu(realCaptions, ourCaptions, weights=(0.5, 0.5, 0, 0))
         score3 = corpus_bleu(realCaptions, ourCaptions, weights=(0.33, 0.33, 0.33, 0))
@@ -522,6 +509,10 @@ model.preProcessCaptions()
 model.buildVocabulary()
 print(f"Vocabulary size: {model.vocab_size}")
 model.train(epochs=10, learning_rate=0.001)
-caption = model.generateCaption("1000268201_693b08cb0e.jpg")
-print(f"Generated caption: {caption}")
+caption1 = model.generateCaption("1000268201_693b08cb0e.jpg")
+caption2 = model.generateCaption("1001773457_577c3a7d70.jpg")
+caption3 = model.generateCaption("1002674143_1b742ab4b8.jpg")
+print(f"Caption 1: {caption1}")
+print(f"Caption 2: {caption2}")
+print(f"Caption 3: {caption3}")
 model.evaluate(num_images=100)
